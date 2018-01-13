@@ -1,4 +1,4 @@
-### **ImageFilters.Common** is a small, low-level, cross-platform image filtering library.
+### ImageFilters.Common is a small, low-level, cross-platform image filtering library.
 
 Uses [System.Drawing.Common](https://www.nuget.org/packages/System.Drawing.Common), `unsafe` code.
 
