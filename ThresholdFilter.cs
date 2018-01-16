@@ -1,12 +1,28 @@
-﻿using Svetomech.ImageFilters.Helpers;
+using Svetomech.ImageFilters.Helpers;
+using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 
 namespace Svetomech.ImageFilters
 {
-    public sealed class GrayscaleFilter : Filter
+    public sealed class ThresholdFilter : Filter
     {
-        public GrayscaleFilter(Bitmap image) : base(image) { }
+        private byte x = 50;
+
+        public ThresholdFilter(Bitmap image) : base(image) { }
+
+        public byte X
+        {
+            get => x;
+
+            set
+            {
+                if (value > 100)
+                    throw new ArgumentOutOfRangeException(nameof(X));
+
+                x = value;
+            }
+        }
 
         protected override unsafe void ApplyInternal(BitmapData bitmap)
         {
@@ -20,7 +36,10 @@ namespace Svetomech.ImageFilters
             {
                 byte intensity = (byte)((pixel[R] + pixel[G] + pixel[B]) / 3);
 
-                pixel[R] = pixel[G] = pixel[B] = intensity;
+                if (intensity >= byte.MaxValue * x / 100)
+                    pixel[R] = pixel[G] = pixel[B] = byte.MaxValue;
+                else
+                    pixel[R] = pixel[G] = pixel[B] = 0;
             }
         }
     }

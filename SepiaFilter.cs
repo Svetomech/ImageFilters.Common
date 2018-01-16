@@ -4,7 +4,7 @@ using System.Drawing.Imaging;
 
 namespace Svetomech.ImageFilters
 {
-    public class SepiaFilter : Filter
+    public sealed class SepiaFilter : Filter
     {
         public SepiaFilter(Bitmap image) : base(image) { }
 
