@@ -20,6 +20,14 @@ var image = new GrayscaleFilter(bitmap).Apply().Image;
 image.Save("bar.jpg");
 ```
 
+Or with parameters:
+
+```csharp
+var bitmap = new Bitmap(Image.FromFile("foo.jpg"));
+var image = new ThresholdFilter(bitmap) { X = 79 }.Apply().Image;
+image.Save("bar.jpg");
+```
+
 ### Releases
 
 Check out the [releases tab](https://github.com/Svetomech/ImageFilters.Common/releases).
