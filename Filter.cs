@@ -15,6 +15,22 @@ namespace Svetomech.ImageFilters
 
         protected virtual Rectangle ImageRectangle { get; set; }
 
+        public virtual Filter Crop(Rectangle area)
+        {
+            if (!ImageRectangle.IntersectsWith(area))
+            {
+                Image = null;
+                return this;
+            }
+
+            area.Intersect(ImageRectangle);
+            ImageRectangle = area;
+
+            // TODO: Slow AF, needs low-level rewrite
+            Image = Image.Clone(area, Image.PixelFormat);
+            return this;
+        }
+
         public virtual Filter Apply()
         {
             var bitmap = Image.LockBits(ImageRectangle,
