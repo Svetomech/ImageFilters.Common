@@ -9,36 +9,36 @@ namespace Svetomech.ImageFilters
         public ShaderBlurLight(Bitmap image) : base(image) { }
         public int Radius = 1;
 
-        protected override unsafe void Technique(int x, int y, ref byte[,,] result, RefPixelDelegate refPixel)
+        protected override unsafe void Technique(int x, int y)
         {
-            var (A, R, G, B) = RGB.GetBytesARGB();
+            byte* pixel = refPixel(x, y);
 
             int radius = Radius;
             int sumR = 0, sumG = 0, sumB = 0, sumA = 0;
 
-            byte* pixel = refPixel(x - radius, y, true);
-            sumR += pixel[R];
-            sumG += pixel[G];
-            sumB += pixel[B];
-            sumA += pixel[A];
+            byte* _pixel = refPixel(x - radius, y, true);
+            sumR += _pixel[R];
+            sumG += _pixel[G];
+            sumB += _pixel[B];
+            sumA += _pixel[A];
 
-            pixel = refPixel(x + radius, y, true);
-            sumR += pixel[R];
-            sumG += pixel[G];
-            sumB += pixel[B];
-            sumA += pixel[A];
+            _pixel = refPixel(x + radius, y, true);
+            sumR += _pixel[R];
+            sumG += _pixel[G];
+            sumB += _pixel[B];
+            sumA += _pixel[A];
 
-            pixel = refPixel(x, y - radius, true);
-            sumR += pixel[R];
-            sumG += pixel[G];
-            sumB += pixel[B];
-            sumA += pixel[A];
+            _pixel = refPixel(x, y - radius, true);
+            sumR += _pixel[R];
+            sumG += _pixel[G];
+            sumB += _pixel[B];
+            sumA += _pixel[A];
 
-            pixel = refPixel(x, y + radius, true);
-            sumR += pixel[R];
-            sumG += pixel[G];
-            sumB += pixel[B];
-            sumA += pixel[A];
+            _pixel = refPixel(x, y + radius, true);
+            sumR += _pixel[R];
+            sumG += _pixel[G];
+            sumB += _pixel[B];
+            sumA += _pixel[A];
 
             sumR /= 4;
             sumG /= 4;
@@ -46,10 +46,10 @@ namespace Svetomech.ImageFilters
             sumA /= 4;
 
 
-            result[x, y, A] = (byte)sumA;
-            result[x, y, R] = (byte)sumR;
-            result[x, y, G] = (byte)sumG;
-            result[x, y, B] = (byte)sumB;
+            buffer[x, y, A] = (byte)sumA;
+            buffer[x, y, R] = (byte)sumR;
+            buffer[x, y, G] = (byte)sumG;
+            buffer[x, y, B] = (byte)sumB;
         }
     }
 

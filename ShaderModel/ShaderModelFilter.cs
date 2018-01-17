@@ -2,15 +2,45 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Threading;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Svetomech.ImageFilters
 {
-    public class ShaderModelFilter : Filter
+    public abstract class ShaderModelFilter : Filter
     {
         public ShaderModelFilter(Bitmap image) : base(image) { }
 
-        public bool MultiThread = true;
+        /// <summary>
+        /// Во включённом состоянии использует 4 потока для обработки изображения.
+        /// В среднем, увеличивает производительность на 25%
+        /// Может оказаться не эффективным для малых изображений
+        /// </summary>
+        public MultiThreadType MultiThread { get; set; } = MultiThreadType.Thread4;
+        /// <summary>
+        /// Позволяет использовать вторичный буфер тех же размеров для сохранения результатов пикселей. 
+        /// Этот буфер будет скопирован в изображение по окончании обработки. 
+        /// При включении может замедлить обработку изображения не более чем в два раза. 
+        /// Рекомендуется НЕ использовать буфер для простых операций (типо ЧБ или Сепия). 
+        /// В выключенном состоянии буфер копироваться не будет, необходимо сохранять пиксели напрямую в массив изображения.
+        /// </summary>
+        public bool EnableBuffer { get; set; } = false;
+
         protected unsafe delegate byte* RefPixelDelegate(int x, int y, bool safeMode = true);
+        public enum MultiThreadType
+        {
+            ThreadThis,
+            Thread2,
+            Thread4,
+            Thread8,
+            Thread16,
+            Thread32,
+            Thread64,
+            Thread128,
+            Thread256,
+            Thread512,
+            Thread1024,
+        };
 
         protected override unsafe void ApplyInternal(BitmapData bitmap)
         {
@@ -18,12 +48,14 @@ namespace Svetomech.ImageFilters
             byte* lastPixel = firstPixel + (bitmap.Height * bitmap.Stride);
 
             byte pixelSize = (byte)(bitmap.Stride / bitmap.Width);
-            var (A, R, G, B) = RGB.GetBytesARGB();
+            (A, R, G, B) = RGB.GetBytesARGB();
 
             img_width = bitmap.Width;
             img_height = bitmap.Height;
 
-            byte[,,] result = new byte[bitmap.Width, bitmap.Height, 4];
+            buffer = new byte[bitmap.Width, bitmap.Height, 4];
+            refPixel = RefPixel;
+
             byte* RefPixel(int x, int y, bool safeMode = true)
             {
                 if (safeMode)
@@ -35,82 +67,134 @@ namespace Svetomech.ImageFilters
                 }
                 return (byte*)(x * pixelSize + bitmap.Stride * y + firstPixel);
             }
-            void ShowResult()
+            void ShowResult(Rectangle region)
             {
-                for (int iy = 0; iy < bitmap.Height; iy++)
-                    for (int ix = 0; ix < bitmap.Width; ix++)
+                for (int iy = region.Y; iy < region.Y + region.Height; iy++)
+                    for (int ix = region.X; ix < region.X + region.Width; ix++)
                     {
                         byte* pixel = RefPixel(ix, iy, false);
-                        pixel[A] = result[ix, iy, A];
-                        pixel[R] = result[ix, iy, R];
-                        pixel[G] = result[ix, iy, G];
-                        pixel[B] = result[ix, iy, B];
+                        pixel[A] = buffer[ix, iy, A];
+                        pixel[R] = buffer[ix, iy, R];
+                        pixel[G] = buffer[ix, iy, G];
+                        pixel[B] = buffer[ix, iy, B];
                     }
             }
-
-            if (MultiThread)
+            void ApplyTechnique(Rectangle region)
             {
-
-                Thread[] THS = new Thread[3];
-                THS[0] = new Thread(() =>
+                for (int iy = region.Y; iy < region.Y + region.Height; iy++)
                 {
-                    for (int iy = 0; iy < bitmap.Height / 2; iy++)
-                        for (int ix = 0; ix < bitmap.Width / 2; ix++)
-                            Technique(ix, iy, ref result, RefPixel);
-                });
-                THS[1] = new Thread(() =>
-                {
-                    for (int iy = bitmap.Height / 2; iy < bitmap.Height; iy++)
-                        for (int ix = 0; ix < bitmap.Width / 2; ix++)
-                            Technique(ix, iy, ref result, RefPixel);
-                });
-                THS[2] = new Thread(() =>
-                {
-                    for (int iy = 0; iy < bitmap.Height / 2; iy++)
-                        for (int ix = bitmap.Width / 2; ix < bitmap.Width; ix++)
-                            Technique(ix, iy, ref result, RefPixel);
-                });
-
-                for (int i = 0; i < THS.Length; i++)
-                {
-                    THS[i].IsBackground = false;
-                    THS[i].Start();
+                    for (int ix = region.X; ix < region.X + region.Width; ix++)
+                    {
+                        Technique(ix, iy);
+                        data_tick++;
+                    }
                 }
+                if (EnableBuffer) ShowResult(region);
+            }
+            void ThreadsSpawn(int xCount, int yCount)
+            {
+                var THSRegions = new List<Rectangle>();
+                ParallelLoopResult THSResult;
 
-                // Эта часть в текущем потоке
-                for (int iy = bitmap.Height / 2; iy < bitmap.Height; iy++)
-                    for (int ix = bitmap.Width / 2; ix < bitmap.Width; ix++)
-                        Technique(ix, iy, ref result, RefPixel);
+                int regWidth = bitmap.Width / xCount;
+                int regHeight = bitmap.Height / yCount;
 
-                // Ожидание завершения всех потоков
+                for (int iy = 0; iy < yCount; iy++)
+                    for (int ix = 0; ix < xCount; ix++)
+                        THSRegions.Add(new Rectangle(
+                            ix * regWidth, 
+                            iy * regHeight, 
+                            regWidth, 
+                            regHeight
+                            ));
+
+                Rectangle thisThreadRegion = THSRegions[0];
+                THSRegions.RemoveAt(0);
+                THSResult = Parallel.ForEach<Rectangle>(THSRegions, (Rectangle zone) => ApplyTechnique(zone));
+                ApplyTechnique(thisThreadRegion);
+
                 while (true)
-                {
-                    bool next = true;
-                    for (int i = 0; i < THS.Length; i++)
-                        if (THS[i].IsAlive)
-                        {
-                            next = false;
-                            break;
-                        }
-                    if (next) break;
-                }
-
-            }
-            else
-            {
-                // Без мультипоточности
-                for (int iy = 0; iy < bitmap.Height; iy++)
-                    for (int ix = 0; ix < bitmap.Width; ix++)
-                        Technique(ix, iy, ref result, RefPixel);
+                    if (THSResult.IsCompleted) break;
             }
 
-            ShowResult();
+            switch (MultiThread) {
+                case MultiThreadType.ThreadThis:
+                    {
+                        ThreadsSpawn(1, 1);
+                        break;
+                    }
+                case MultiThreadType.Thread2:
+                    {
+                        ThreadsSpawn(2, 1);
+                        break;
+                    }
+                case MultiThreadType.Thread4:
+                    {
+                        ThreadsSpawn(2, 2);
+                        break;
+                    }
+                case MultiThreadType.Thread8:
+                    {
+                        ThreadsSpawn(4, 2);
+                        break;
+                    }
+                case MultiThreadType.Thread16:
+                    {
+                        ThreadsSpawn(4, 4);
+                        break;
+                    }
+                case MultiThreadType.Thread32:
+                    {
+                        ThreadsSpawn(8, 4);
+                        break;
+                    }
+                case MultiThreadType.Thread64:
+                    {
+                        ThreadsSpawn(8, 8);
+                        break;
+                    }
+                case MultiThreadType.Thread128:
+                    {
+                        ThreadsSpawn(16, 8);
+                        break;
+                    }
+                case MultiThreadType.Thread256:
+                    {
+                        ThreadsSpawn(16, 16);
+                        break;
+                    }
+                case MultiThreadType.Thread512:
+                    {
+                        ThreadsSpawn(32, 16);
+                        break;
+                    }
+                case MultiThreadType.Thread1024:
+                    {
+                        ThreadsSpawn(32, 32);
+                        break;
+                    }
+            }
         }
 
-        protected virtual unsafe void Technique(int x, int y, ref byte[,,] result, RefPixelDelegate refPixel) { }
+        /// <summary>
+        /// Метод обработки пикселей. Получает координаты пикселя который следует обработать.
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        protected abstract void Technique(int x, int y);
+
+        // Объекты доступные "шейдеру" // -----------------------------------
+
+        protected RefPixelDelegate refPixel;
+
+        protected byte[,,] buffer;
 
         protected int img_width = 0;
-        protected int img_height = 0;              
+        protected int img_height = 0;
+
+        protected int data_tick = 0;
+
+        protected byte A, R, G, B;
 
         protected int math_dist(int X1, int Y1, int X2, int Y2)
         {

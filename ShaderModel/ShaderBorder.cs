@@ -8,11 +8,11 @@ namespace Svetomech.ImageFilters
     {
         public ShaderBorder(Bitmap image) : base(image) { }
 
-        protected override unsafe void Technique(int x, int y, ref byte[,,] result, RefPixelDelegate refPixel)
+        protected override unsafe void Technique(int x, int y)
         {
-            var (A, R, G, B) = RGB.GetBytesARGB();
-            byte* pixel = refPixel(x, y, false);
-            result[x, y, A] = pixel[A];
+            byte* pixel = refPixel(x, y);
+            byte* _pixel = refPixel(x, y, false);
+            buffer[x, y, A] = _pixel[A];
 
             byte distance(byte R1, byte G1, byte B1, byte R2, byte G2, byte B2) // оптимизировать через модули вместо квадратов и корней
             {
@@ -20,9 +20,9 @@ namespace Svetomech.ImageFilters
             }
 
             byte* npixel = refPixel(x + 1, y);
-            byte dist = distance(pixel[R], pixel[G], pixel[B], npixel[R], npixel[G], npixel[B]);
+            byte dist = distance(_pixel[R], _pixel[G], _pixel[B], npixel[R], npixel[G], npixel[B]);
             dist = (byte)(dist > 32 ? 255 : 0);
-            result[x, y, R] = result[x, y, G] = result[x, y, B] = dist;
+            buffer[x, y, R] = buffer[x, y, G] = buffer[x, y, B] = dist;
         }
     }
 

@@ -8,11 +8,10 @@ namespace Svetomech.ImageFilters
     {
         public ShaderSketch(Bitmap image) : base(image) { }
 
-        protected override unsafe void Technique(int x, int y, ref byte[,,] result, RefPixelDelegate refPixel)
-        {
-            var (A, R, G, B) = RGB.GetBytesARGB();
+        protected override unsafe void Technique(int x, int y)
+        {            
             byte* pixel = refPixel(x, y, false);
-            result[x, y, A] = pixel[A];
+            buffer[x, y, A] = pixel[A];
 
             byte* Rpixel = refPixel(x + 1, y);
             byte Rdist = (byte)math_dist(pixel[R], pixel[G], pixel[B], Rpixel[R], Rpixel[G], Rpixel[B]);
@@ -23,7 +22,7 @@ namespace Svetomech.ImageFilters
             byte* Upixel = refPixel(x, y - 1);
             byte Udist = (byte)math_dist(pixel[R], pixel[G], pixel[B], Upixel[R], Upixel[G], Upixel[B]);
 
-            result[x, y, R] = result[x, y, G] = result[x, y, B] = (byte)(255 - math_mix(Rdist, Ldist, Ddist, Udist));
+            buffer[x, y, R] = buffer[x, y, G] = buffer[x, y, B] = (byte)(255 - math_mix(Rdist, Ldist, Ddist, Udist));
         }
     }
 

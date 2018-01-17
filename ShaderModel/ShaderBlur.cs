@@ -6,12 +6,16 @@ namespace Svetomech.ImageFilters
 {
     public class ShaderBlur : ShaderModelFilter
     {
-        public ShaderBlur(Bitmap image) : base(image) { }
-        public int Radius = 1;
-
-        protected override unsafe void Technique(int x, int y, ref byte[,,] result, RefPixelDelegate refPixel)
+        public ShaderBlur(Bitmap image) : base(image)
         {
-            var (A, R, G, B) = RGB.GetBytesARGB();
+            MultiThread = MultiThreadType.Thread128;
+            EnableBuffer = true;
+        }
+        public int Radius = 5;
+
+        protected override unsafe void Technique(int x, int y)
+        {            
+            byte* pixel = refPixel(x, y);
 
             int radius = Radius;
             int square = (radius * 2 + 1) * (radius * 2 + 1);
@@ -19,11 +23,11 @@ namespace Svetomech.ImageFilters
             for (int iy = -radius; iy <= radius; iy++)
                 for (int ix = -radius; ix <= radius; ix++)
                 {
-                    byte* pixel = refPixel(ix + x, iy + y, true);
-                    sumR += pixel[R];
-                    sumG += pixel[G];
-                    sumB += pixel[B];
-                    sumA += pixel[A];
+                    byte* _pixel = refPixel(ix + x, iy + y, true);
+                    sumR += _pixel[R];
+                    sumG += _pixel[G];
+                    sumB += _pixel[B];
+                    sumA += _pixel[A];                    
                 }
             sumR /= square;
             sumG /= square;
@@ -31,10 +35,10 @@ namespace Svetomech.ImageFilters
             sumA /= square;
 
 
-            result[x, y, A] = (byte)sumA;
-            result[x, y, R] = (byte)sumR;
-            result[x, y, G] = (byte)sumG;
-            result[x, y, B] = (byte)sumB;
+            buffer[x, y, A] = (byte)sumA;
+            buffer[x, y, R] = (byte)sumR;
+            buffer[x, y, G] = (byte)sumG;
+            buffer[x, y, B] = (byte)sumB;
         }
     }
 
