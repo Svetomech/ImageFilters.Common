@@ -15,20 +15,22 @@ Built against [.NET Standard 2.0](https://docs.microsoft.com/dotnet/standard/net
 Here's an example of the code required to apply a filter to an image:
 
 ```csharp
-using (var bitmap = new Bitmap(Image.FromFile("foo.jpg")))
+using (var originalImage = new Bitmap(Image.FromFile("foo.jpg")))
+using (var filteredImage = new GrayscaleFilter(originalImage).Apply().Image)
 {
-    var image = new GrayscaleFilter(bitmap).Apply().Image;
-    image.Save("bar.jpg");
+    // some further processing can be done here
+    filteredImage.Save("bar.jpg");
 }
 ```
 
 Or with parameters:
 
 ```csharp
-using (var bitmap = new Bitmap(Image.FromFile("foo.jpg")))
+using (var originalImage = new Bitmap(Image.FromFile("foo.jpg")))
+using (var filteredImage = new ThresholdFilter(bitmap) { X = 79 }.Apply().Image;)
 {
-    var image = new ThresholdFilter(bitmap) { X = 79 }.Apply().Image;
-    image.Save("bar.jpg");
+    // some further processing can be done here
+    filteredImage.Save("bar.jpg");
 }
 ```
 
