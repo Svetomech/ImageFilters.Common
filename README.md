@@ -27,7 +27,7 @@ Or with parameters:
 
 ```csharp
 using (var originalImage = new Bitmap(Image.FromFile("foo.jpg")))
-using (var filteredImage = new ThresholdFilter(bitmap) { X = 79 }.Apply().Image;)
+using (var filteredImage = new ThresholdFilter(bitmap) { X = 79 }.Apply().Image)
 {
     // some further processing can be done here
     filteredImage.Save("bar.jpg");
